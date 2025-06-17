@@ -22,6 +22,10 @@
 
 struct rw_semaphore;
 
+#ifdef OPLUS_FEATURE_SCHED_ASSIST
+#define PREEMPT_DISABLE_RWSEM 3000000
+#endif
+
 #ifdef CONFIG_RWSEM_GENERIC_SPINLOCK
 #include <linux/rwsem-spinlock.h> /* use a generic implementation */
 #define __RWSEM_INIT_COUNT(name)	.count = RWSEM_UNLOCKED_VALUE
@@ -45,6 +49,17 @@ struct rw_semaphore {
 #ifdef CONFIG_DEBUG_LOCK_ALLOC
 	struct lockdep_map	dep_map;
 #endif
+#ifdef OPLUS_FEATURE_SCHED_ASSIST
+	struct task_struct *ux_dep_task;
+#endif /* OPLUS_FEATURE_SCHED_ASSIST */
+#ifdef CONFIG_KERNEL_LOCK_OPT
+	struct list_head	owner_list;
+#endif
+        /* NOTICE: m_count is a vendor variable used for the config
+         * CONFIG_RWSEM_PRIO_AWARE. This is included here to maintain ABI
+         * compatibility with our vendors */
+        /* count for waiters preempt to queue in wait list */
+	long m_count;
 };
 
 /*
@@ -59,6 +74,10 @@ extern struct rw_semaphore *rwsem_down_write_failed(struct rw_semaphore *sem);
 extern struct rw_semaphore *rwsem_down_write_failed_killable(struct rw_semaphore *sem);
 extern struct rw_semaphore *rwsem_wake(struct rw_semaphore *);
 extern struct rw_semaphore *rwsem_downgrade_wake(struct rw_semaphore *sem);
+
+#ifdef OPLUS_FEATURE_SCHED_ASSIST
+#include <linux/sched_assist/sched_assist_rwsem.h>
+#endif /* OPLUS_FEATURE_SCHED_ASSIST */
 
 /* Include the arch specific part */
 #include <asm/rwsem.h>
@@ -75,13 +94,21 @@ static inline int rwsem_is_locked(struct rw_semaphore *sem)
 /* Common initializer macros and functions */
 
 #ifdef CONFIG_DEBUG_LOCK_ALLOC
-# define __RWSEM_DEP_MAP_INIT(lockname) , .dep_map = { .name = #lockname }
+# define __RWSEM_DEP_MAP_INIT(lockname)			\
+	, .dep_map = {					\
+		.name = #lockname,			\
+		.wait_type_inner = LD_WAIT_SLEEP,	\
+	}
 #else
 # define __RWSEM_DEP_MAP_INIT(lockname)
 #endif
 
 #ifdef CONFIG_RWSEM_SPIN_ON_OWNER
+#ifndef OPLUS_FEATURE_SCHED_ASSIST
 #define __RWSEM_OPT_INIT(lockname) , .osq = OSQ_LOCK_UNLOCKED, .owner = NULL
+#else /* OPLUS_FEATURE_SCHED_ASSIST */
+#define __RWSEM_OPT_INIT(lockname) , .osq = OSQ_LOCK_UNLOCKED, .owner = NULL, .ux_dep_task = NULL
+#endif /* OPLUS_FEATURE_SCHED_ASSIST */
 #else
 #define __RWSEM_OPT_INIT(lockname)
 #endif
@@ -92,6 +119,16 @@ static inline int rwsem_is_locked(struct rw_semaphore *sem)
 #define __RWSEM_TURBO_OWNER_INIT(lock_name)
 #endif
 
+#ifdef CONFIG_KERNEL_LOCK_OPT
+#define __RWSEM_INITIALIZER(name)				\
+	{ __RWSEM_INIT_COUNT(name),				\
+	  .wait_list = LIST_HEAD_INIT((name).wait_list),	\
+	  .owner_list = LIST_HEAD_INIT((name).owner_list), \
+	  .wait_lock = __RAW_SPIN_LOCK_UNLOCKED(name.wait_lock)	\
+	  __RWSEM_OPT_INIT(name)				\
+	  __RWSEM_DEP_MAP_INIT(name),				\
+	  __RWSEM_TURBO_OWNER_INIT(name)}
+#else
 #define __RWSEM_INITIALIZER(name)				\
 	{ __RWSEM_INIT_COUNT(name),				\
 	  .wait_list = LIST_HEAD_INIT((name).wait_list),	\
@@ -99,6 +136,7 @@ static inline int rwsem_is_locked(struct rw_semaphore *sem)
 	  __RWSEM_OPT_INIT(name)				\
 	  __RWSEM_DEP_MAP_INIT(name),				\
 	  __RWSEM_TURBO_OWNER_INIT(name)}
+#endif
 
 #define DECLARE_RWSEM(name) \
 	struct rw_semaphore name = __RWSEM_INITIALIZER(name)
@@ -128,6 +166,7 @@ static inline int rwsem_is_contended(struct rw_semaphore *sem)
  * lock for reading
  */
 extern void down_read(struct rw_semaphore *sem);
+extern int __must_check down_read_killable(struct rw_semaphore *sem);
 
 /*
  * trylock for reading -- returns 1 if successful, 0 if contention

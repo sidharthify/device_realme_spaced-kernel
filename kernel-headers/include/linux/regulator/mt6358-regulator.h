@@ -1,15 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2018 MediaTek Inc.
- * Author: Hsin-Hsiung Wang <hsin-hsiung.wang@mediatek.com>
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * Copyright (c) 2019 MediaTek Inc.
  */
 
 #ifndef __LINUX_REGULATOR_MT6358_H
@@ -71,10 +62,30 @@ enum {
 #endif
 	MT6358_ID_VAUD28,
 	MT6358_ID_VSIM2,
+#if USE_PMIC_MT6366
+	MT6358_ID_VSRAM_CORE,
+#endif
 	MT6358_ID_VA09,
+	MT6358_ID_VMCH_EINT_HIGH,
+	MT6358_ID_VMCH_EINT_LOW,
 	MT6358_ID_RG_MAX,
 };
 
 #define MT6358_MAX_REGULATOR	MT6358_ID_RG_MAX
+
+#if USE_PMIC_MT6366
+#define PMIC_RG_LDO_VSRAM_CORE_EN_ADDR			0x1c9c
+#define PMIC_RG_LDO_VSRAM_CORE_EN_MASK			0x1
+#define PMIC_RG_LDO_VSRAM_CORE_EN_SHIFT			0
+#define PMIC_DA_VSRAM_CORE_EN_ADDR				0x1cb8
+#define PMIC_DA_VSRAM_CORE_EN_MASK				0x1
+#define PMIC_DA_VSRAM_CORE_EN_SHIFT				0
+#define PMIC_RG_LDO_VSRAM_CORE_VOSEL_ADDR		0x1bf8
+#define PMIC_RG_LDO_VSRAM_CORE_VOSEL_MASK		0x7F
+#define PMIC_RG_LDO_VSRAM_CORE_VOSEL_SHIFT		0
+#define PMIC_DA_VSRAM_CORE_VOSEL_ADDR			0x1cb6
+#define PMIC_DA_VSRAM_CORE_VOSEL_MASK			0x7F
+#define PMIC_DA_VSRAM_CORE_VOSEL_SHIFT			8
+#endif
 
 #endif /* __LINUX_REGULATOR_MT6358_H */

@@ -56,7 +56,7 @@ extern unsigned int pageblock_order;
 #else /* CONFIG_HUGETLB_PAGE */
 
 /* If huge pages are not used, group by MAX_ORDER_NR_PAGES */
-#define pageblock_order		(MAX_ORDER-1)
+#define pageblock_order		PAGE_ALLOC_COSTLY_ORDER
 
 #endif /* CONFIG_HUGETLB_PAGE */
 
@@ -96,6 +96,17 @@ void set_pfnblock_flags_mask(struct page *page,
 #define set_pageblock_skip(page) \
 			set_pageblock_flags_group(page, 1, PB_migrate_skip,  \
 							PB_migrate_skip)
+#else
+static inline bool get_pageblock_skip(struct page *page)
+{
+	return false;
+}
+static inline void clear_pageblock_skip(struct page *page)
+{
+}
+static inline void set_pageblock_skip(struct page *page)
+{
+}
 #endif /* CONFIG_COMPACTION */
 
 #endif	/* PAGEBLOCK_FLAGS_H */

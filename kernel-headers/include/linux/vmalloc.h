@@ -8,6 +8,7 @@
 #include <linux/llist.h>
 #include <asm/page.h>		/* pgprot_t */
 #include <linux/rbtree.h>
+#include <linux/overflow.h>
 
 struct vm_area_struct;		/* vma defining user mapping in mm_types.h */
 struct notifier_block;		/* in notifier.h */
@@ -39,6 +40,9 @@ struct vm_struct {
 	unsigned int		nr_pages;
 	phys_addr_t		phys_addr;
 	const void		*caller;
+#if defined(OPLUS_FEATURE_MEMLEAK_DETECT) && defined(CONFIG_VMALLOC_DEBUG)
+	unsigned int		hash;
+#endif
 };
 
 struct vmap_area {

@@ -1,15 +1,7 @@
+/* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2015 MediaTek Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- */
+ * Copyright (c) 2019 MediaTek Inc.
+*/
 
 
 #ifndef _UAPI_MEDIATEK_DRM_H
@@ -151,10 +143,10 @@ struct msync_parameter_table {
 #define COLOR_TUNING_INDEX 19
 #define THSHP_TUNING_INDEX 24
 #define THSHP_PARAM_MAX 146 /* TDSHP_3_0 */
-#define PARTIAL_Y_INDEX 11
-#define GLOBAL_SAT_SIZE 11
-#define CONTRAST_SIZE 11
-#define BRIGHTNESS_SIZE 11
+#define PARTIAL_Y_INDEX 22
+#define GLOBAL_SAT_SIZE 22
+#define CONTRAST_SIZE 22
+#define BRIGHTNESS_SIZE 22
 #define PARTIAL_Y_SIZE 16
 #define PQ_HUE_ADJ_PHASE_CNT 4
 #define PQ_SAT_ADJ_PHASE_CNT 4
@@ -398,6 +390,13 @@ struct DISP_CCORR_COEF_T {
 	unsigned int coef[3][3];
 };
 
+#define SLD_CCORR_SIZE 512
+
+struct DISP_SLD_PARAM {
+	int sld_ccorr_table[SLD_CCORR_SIZE];
+	int sld_bl;
+};
+
 #define DISP_GAMMA_LUT_SIZE 512
 
 enum disp_gamma_id_t {
@@ -463,6 +462,8 @@ struct DISP_PQ_PARAM {
 #define DRM_MTK_SUPPORT_COLOR_TRANSFORM    0x2D
 #define DRM_MTK_READ_SW_REG   0x2E
 #define DRM_MTK_WRITE_SW_REG   0x2F
+#define DRM_MTK_SUPPORT_SLD 0x56
+#define DRM_MTK_SET_SLD_PARAM 0x57
 
 /* AAL */
 #define DRM_MTK_AAL_INIT_REG	0x30
@@ -481,6 +482,7 @@ struct DISP_PQ_PARAM {
 #define DRM_MTK_SET_PQ_CAPS 0x55
 
 #define DRM_MTK_DEBUG_LOG			0x3E
+#define DRM_MTK_GET_PANELS_INFO 0x5a
 
 enum MTKFB_DISPIF_TYPE {
 	DISPIF_TYPE_DBI = 0,
@@ -570,20 +572,23 @@ struct drm_mtk_layer_config {
 	__u8 secure;
 };
 
+#define LYE_CRTC 4
 struct drm_mtk_layering_info {
-	struct drm_mtk_layer_config __user *input_config[3];
-	int disp_mode[3];
+	struct drm_mtk_layer_config *input_config[LYE_CRTC];
+	int disp_mode[LYE_CRTC];
 	/* index of crtc display mode including resolution, fps... */
-	int disp_mode_idx[3];
-	int layer_num[3];
-	int gles_head[3];
-	int gles_tail[3];
+	int disp_mode_idx[LYE_CRTC];
+	int layer_num[LYE_CRTC];
+	int gles_head[LYE_CRTC];
+	int gles_tail[LYE_CRTC];
 	int hrt_num;
+	__u32 disp_idx;
+	__u32 disp_list;
 	/* res_idx: SF/HWC selects which resolution to use */
 	int res_idx;
 	uint32_t hrt_weight;
 	uint32_t hrt_idx;
-	struct mml_frame_info *mml_cfg[3];
+	struct mml_frame_info *mml_cfg[LYE_CRTC];
 };
 
 /**
@@ -625,6 +630,11 @@ enum MTK_DRM_DISP_FEATURE {
 	/*Msync*/
 	DRM_DISP_FEATURE_MSYNC2_0 = 0x00000200,
 	DRM_DISP_FEATURE_MML_PRIMARY = 0x00000400,
+	DRM_DISP_FEATURE_VIRUTAL_DISPLAY = 0x00000800,
+	DRM_DISP_FEATURE_IOMMU = 0x00001000,
+	DRM_DISP_FEATURE_OVL_BW_MONITOR = 0x00002000,
+	DRM_DISP_FEATURE_GPU_CACHE = 0x00004000,
+	DRM_DISP_FEATURE_SPHRT = 0x00008000,
 };
 
 enum mtk_mmsys_id {
@@ -714,6 +724,15 @@ struct drm_mtk_ccorr_caps {
 
 struct mtk_drm_pq_caps_info {
 	struct drm_mtk_ccorr_caps ccorr_caps;
+};
+
+#define GET_PANELS_STR_LEN 64
+struct mtk_drm_panels_info {
+	int connector_cnt;
+	int default_connector_id;
+	unsigned int *connector_obj_id;
+	char **panel_name;
+	unsigned int *panel_id;
 };
 
 #define DRM_IOCTL_MTK_GEM_CREATE	DRM_IOWR(DRM_COMMAND_BASE + \
@@ -806,6 +825,9 @@ struct mtk_drm_pq_caps_info {
 #define DRM_IOCTL_MTK_GET_LCM_INDEX    DRM_IOWR(DRM_COMMAND_BASE + \
 		DRM_MTK_GET_LCM_INDEX, unsigned int)
 
+#define DRM_IOCTL_MTK_GET_PANELS_INFO   DRM_IOWR(DRM_COMMAND_BASE + \
+		DRM_MTK_GET_PANELS_INFO, struct mtk_drm_panels_info)
+
 #define DRM_IOCTL_MTK_SUPPORT_COLOR_TRANSFORM     DRM_IOWR(DRM_COMMAND_BASE + \
 		DRM_MTK_SUPPORT_COLOR_TRANSFORM, struct DISP_COLOR_TRANSFORM)
 
@@ -827,6 +849,10 @@ struct mtk_drm_pq_caps_info {
 #define DRM_IOCTL_MTK_SET_PQ_CAPS    DRM_IOWR(DRM_COMMAND_BASE + \
 		DRM_MTK_SET_PQ_CAPS, struct mtk_drm_pq_caps_info)
 
+#define DRM_IOCTL_MTK_SUPPORT_SLD  DRM_IOWR(DRM_COMMAND_BASE + \
+	DRM_MTK_SUPPORT_SLD, bool)
+#define DRM_IOCTL_MTK_SET_SLD_PARAM    DRM_IOWR(DRM_COMMAND_BASE + \
+	DRM_MTK_SET_SLD_PARAM, struct DISP_SLD_PARAM)
 
 /* AAL IOCTL */
 #define AAL_HIST_BIN            33	/* [0..32] */
@@ -878,6 +904,9 @@ struct DISP_AAL_INITREG {
 	int blk_cnt_y_end;
 	int last_tile_x_flag;
 	int last_tile_y_flag;
+	bool isdual;
+	int width;
+	int height;
 };
 
 struct DISP_AAL_PARAM {
@@ -920,6 +949,7 @@ struct DISP_AAL_HIST {
 	unsigned int aal1_yHist[AAL_HIST_BIN];
 	unsigned int MaxHis_denominator_pipe0[AAL_DRE_BLK_NUM];
 	unsigned int MaxHis_denominator_pipe1[AAL_DRE_BLK_NUM];
+	bool need_config;
 };
 
 #define DRM_IOCTL_MTK_AAL_INIT_REG	DRM_IOWR(DRM_COMMAND_BASE + \

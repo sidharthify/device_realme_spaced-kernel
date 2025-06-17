@@ -32,10 +32,23 @@
 /*
  * lock for reading
  */
+#ifdef CONFIG_KERNEL_LOCK_OPT
+#include <linux/klockopt/klockopt.h>
+#endif
 static inline void __down_read(struct rw_semaphore *sem)
 {
 	if (unlikely(atomic_long_inc_return_acquire(&sem->count) <= 0))
 		rwsem_down_read_failed(sem);
+}
+
+static inline int __down_read_killable(struct rw_semaphore *sem)
+{
+	if (unlikely(atomic_long_inc_return_acquire(&sem->count) <= 0)) {
+		if (IS_ERR(rwsem_down_read_failed_killable(sem)))
+			return -EINTR;
+	}
+
+	return 0;
 }
 
 static inline int __down_read_trylock(struct rw_semaphore *sem)
@@ -95,6 +108,10 @@ static inline void __up_read(struct rw_semaphore *sem)
 	tmp = atomic_long_dec_return_release(&sem->count);
 	if (unlikely(tmp < -1 && (tmp & RWSEM_ACTIVE_MASK) == 0))
 		rwsem_wake(sem);
+#ifdef CONFIG_KERNEL_LOCK_OPT
+	delete_owner(sem);
+	lock_ux_reset(current);
+#endif
 }
 
 /*
@@ -105,6 +122,10 @@ static inline void __up_write(struct rw_semaphore *sem)
 	if (unlikely(atomic_long_sub_return_release(RWSEM_ACTIVE_WRITE_BIAS,
 						    &sem->count) < 0))
 		rwsem_wake(sem);
+#ifdef CONFIG_KERNEL_LOCK_OPT
+	delete_owner(sem);
+	lock_ux_reset(current);
+#endif
 }
 
 /*

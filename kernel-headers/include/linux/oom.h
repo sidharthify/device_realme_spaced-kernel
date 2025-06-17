@@ -45,6 +45,7 @@ struct oom_control {
 };
 
 extern struct mutex oom_lock;
+extern struct mutex oom_adj_mutex;
 
 static inline void set_current_oom_origin(void)
 {
@@ -88,14 +89,14 @@ static inline bool mm_is_oom_victim(struct mm_struct *mm)
  *
  * Return 0 when the PF is safe VM_FAULT_SIGBUS otherwise.
  */
-static inline int check_stable_address_space(struct mm_struct *mm)
+static inline vm_fault_t check_stable_address_space(struct mm_struct *mm)
 {
 	if (unlikely(test_bit(MMF_UNSTABLE, &mm->flags)))
 		return VM_FAULT_SIGBUS;
 	return 0;
 }
 
-void __oom_reap_task_mm(struct mm_struct *mm);
+bool __oom_reap_task_mm(struct mm_struct *mm);
 
 extern unsigned long oom_badness(struct task_struct *p,
 		struct mem_cgroup *memcg, const nodemask_t *nodemask,
@@ -117,4 +118,11 @@ extern struct task_struct *find_lock_task_mm(struct task_struct *p);
 extern int sysctl_oom_dump_tasks;
 extern int sysctl_oom_kill_allocating_task;
 extern int sysctl_panic_on_oom;
+
+extern int sysctl_reap_mem_on_sigkill;
+/* calls for LMK reaper */
+extern void add_to_oom_reaper(struct task_struct *p);
+extern void check_panic_on_foreground_kill(struct task_struct *p);
+#define ULMK_MAGIC "lmkd"
+#define ATHENA_KILLER_MAGIC "athena_killer"
 #endif /* _INCLUDE_LINUX_OOM_H */
